@@ -37,7 +37,21 @@ def download_dataset():
         cache_dir=os.path.abspath(DATA_DIR),
         cache_subdir="",
     )
-    dataset_dir = os.path.join(os.path.dirname(dataset), "aclImdb")
+    base_dir = os.path.dirname(dataset)
+
+    # Keras' extraction folder naming differs across versions/platforms —
+    # it may extract directly to <base_dir>/aclImdb, or nest it one level
+    # deeper as <base_dir>/aclImdb_v1_extracted/aclImdb. Handle both.
+    candidate_paths = [
+        os.path.join(base_dir, "aclImdb"),
+        os.path.join(base_dir, "aclImdb_v1_extracted", "aclImdb"),
+    ]
+    dataset_dir = next((p for p in candidate_paths if os.path.isdir(p)), None)
+    if dataset_dir is None:
+        raise FileNotFoundError(
+            f"Could not find extracted aclImdb folder. Checked: {candidate_paths}. "
+            f"Check what's actually inside {base_dir}."
+        )
 
     # The archive ships with an unused "unsup" (unlabeled) folder inside
     # train/ — remove it or it gets picked up as a spurious 3rd class.
