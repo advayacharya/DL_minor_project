@@ -1,0 +1,9 @@
+{
+  "model": "lstm",
+  "accuracy": 0.8022,
+  "precision": 0.8697993147332355,
+  "recall": 0.7108,
+  "f1": 0.7823024433193925,
+  "train_seconds": 167.1,
+  "param_count": 675137
+}

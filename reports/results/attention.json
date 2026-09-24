@@ -1,0 +1,9 @@
+{
+  "model": "attention",
+  "accuracy": 0.83,
+  "precision": 0.8483952702702703,
+  "recall": 0.8036,
+  "f1": 0.8253903040262942,
+  "train_seconds": 146.2,
+  "param_count": 699905
+}
