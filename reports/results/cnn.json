@@ -1,0 +1,9 @@
+{
+  "model": "cnn",
+  "accuracy": 0.85976,
+  "precision": 0.8316371681415929,
+  "recall": 0.90216,
+  "f1": 0.865464313123561,
+  "train_seconds": 53.8,
+  "param_count": 689409
+}
