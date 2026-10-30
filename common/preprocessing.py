@@ -30,23 +30,33 @@ def download_dataset():
     """Downloads and extracts the Stanford aclImdb dataset (first run only;
     cached afterwards). Returns the path to the extracted aclImdb folder."""
     url = "https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
-    dataset = tf.keras.utils.get_file(
-        "aclImdb_v1.tar.gz",
-        url,
-        untar=True,
-        cache_dir=os.path.abspath(DATA_DIR),
-        cache_subdir="",
-    )
-    base_dir = os.path.dirname(dataset)
+    # keras falls back to the system temp dir if the cache dir does not already
+    # exist, so create it first or the dataset lands outside the repo.
+    base_dir = os.path.abspath(DATA_DIR)
+    os.makedirs(base_dir, exist_ok=True)
 
-    # Keras' extraction folder naming differs across versions/platforms —
+    # Keras' extraction folder naming differs across versions/platforms:
     # it may extract directly to <base_dir>/aclImdb, or nest it one level
     # deeper as <base_dir>/aclImdb_v1_extracted/aclImdb. Handle both.
     candidate_paths = [
         os.path.join(base_dir, "aclImdb"),
         os.path.join(base_dir, "aclImdb_v1_extracted", "aclImdb"),
     ]
+
+    # Reuse an already-present copy instead of re-fetching. The Stanford host
+    # is intermittently unreachable, so the dataset may have been placed here
+    # from a mirror (see tools/fetch_dataset.py).
     dataset_dir = next((p for p in candidate_paths if os.path.isdir(p)), None)
+    if dataset_dir is None:
+        tf.keras.utils.get_file(
+            "aclImdb_v1.tar.gz",
+            url,
+            untar=True,
+            cache_dir=base_dir,
+            cache_subdir="",
+        )
+        dataset_dir = next((p for p in candidate_paths if os.path.isdir(p)), None)
+
     if dataset_dir is None:
         raise FileNotFoundError(
             f"Could not find extracted aclImdb folder. Checked: {candidate_paths}. "
