@@ -22,6 +22,7 @@ from common.preprocessing import (
 from common.utils import evaluate_and_save
 
 MODEL_NAME = "lstm"
+EPOCHS = 10  # shared across all four models; early stopping ends runs sooner
 EMBEDDING_DIM = 64
 
 
@@ -49,8 +50,12 @@ def main():
     model = build_model(MAX_TOKENS, SEQUENCE_LENGTH)
     model.summary()
 
+    early_stop = tf.keras.callbacks.EarlyStopping(
+        monitor="val_loss", patience=2, restore_best_weights=True
+    )
     start = time.time()
-    model.fit(train_ds, validation_data=val_ds, epochs=6)
+    model.fit(train_ds, validation_data=val_ds, epochs=EPOCHS,
+              callbacks=[early_stop])
     train_seconds = time.time() - start
 
     evaluate_and_save(MODEL_NAME, model, test_ds, train_seconds, model.count_params())

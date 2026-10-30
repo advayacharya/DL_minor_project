@@ -23,6 +23,7 @@ from common.preprocessing import (
 from common.utils import evaluate_and_save
 
 MODEL_NAME = "attention"
+EPOCHS = 10  # shared across all four models; early stopping ends runs sooner
 EMBEDDING_DIM = 64
 NUM_HEADS = 2
 FF_DIM = 64
@@ -34,12 +35,18 @@ class PositionalEmbedding(tf.keras.layers.Layer):
 
     def __init__(self, seq_len, vocab_size, embed_dim, **kwargs):
         super().__init__(**kwargs)
-        self.token_emb = tf.keras.layers.Embedding(vocab_size, embed_dim)
+        self.token_emb = tf.keras.layers.Embedding(vocab_size, embed_dim, mask_zero=True)
         self.pos_emb = tf.keras.layers.Embedding(seq_len, embed_dim)
+        self.supports_masking = True
 
     def call(self, x):
         positions = tf.range(start=0, limit=tf.shape(x)[-1], delta=1)
         return self.token_emb(x) + self.pos_emb(positions)
+
+    def compute_mask(self, inputs, mask=None):
+        # Propagate the padding mask so self-attention and the pooling layer
+        # both skip pad tokens instead of treating them as content.
+        return self.token_emb.compute_mask(inputs, mask)
 
 
 class TransformerBlock(tf.keras.layers.Layer):
@@ -57,9 +64,13 @@ class TransformerBlock(tf.keras.layers.Layer):
         self.norm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
         self.dropout1 = tf.keras.layers.Dropout(0.1)
         self.dropout2 = tf.keras.layers.Dropout(0.1)
+        self.supports_masking = True
 
-    def call(self, x, training=False):
-        attn_out = self.att(x, x)
+    def call(self, x, training=False, mask=None):
+        # (batch, seq) -> (batch, 1, seq); broadcasts over the query axis so
+        # every query attends only to real tokens.
+        attn_mask = mask[:, None, :] if mask is not None else None
+        attn_out = self.att(x, x, attention_mask=attn_mask)
         x = self.norm1(x + self.dropout1(attn_out, training=training))
         ffn_out = self.ffn(x)
         return self.norm2(x + self.dropout2(ffn_out, training=training))
@@ -90,8 +101,12 @@ def main():
     model = build_model(MAX_TOKENS, SEQUENCE_LENGTH)
     model.summary()
 
+    early_stop = tf.keras.callbacks.EarlyStopping(
+        monitor="val_loss", patience=2, restore_best_weights=True
+    )
     start = time.time()
-    model.fit(train_ds, validation_data=val_ds, epochs=6)
+    model.fit(train_ds, validation_data=val_ds, epochs=EPOCHS,
+              callbacks=[early_stop])
     train_seconds = time.time() - start
 
     evaluate_and_save(MODEL_NAME, model, test_ds, train_seconds, model.count_params())
