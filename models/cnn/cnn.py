@@ -22,6 +22,7 @@ from common.preprocessing import (
 from common.utils import evaluate_and_save
 
 MODEL_NAME = "cnn"
+EPOCHS = 10  # shared across all four models; early stopping ends runs sooner
 EMBEDDING_DIM = 64
 
 
@@ -39,6 +40,15 @@ def build_model(vocab_size, seq_len):
     return model
 
 
+def print_history(history):
+    h = history.history
+    print("| epoch | train_acc | train_loss | val_acc | val_loss |")
+    print("|------:|----------:|-----------:|--------:|---------:|")
+    for i in range(len(h["loss"])):
+        print(f"| {i+1} | {h['accuracy'][i]:.4f} | {h['loss'][i]:.4f} "
+              f"| {h['val_accuracy'][i]:.4f} | {h['val_loss'][i]:.4f} |")
+
+
 def main():
     raw_train_ds, raw_val_ds, raw_test_ds = get_datasets()
     int_vectorizer, _ = build_vectorizers(raw_train_ds)
@@ -50,9 +60,14 @@ def main():
     model = build_model(MAX_TOKENS, SEQUENCE_LENGTH)
     model.summary()
 
+    early_stop = tf.keras.callbacks.EarlyStopping(
+        monitor="val_loss", patience=2, restore_best_weights=True
+    )
     start = time.time()
-    model.fit(train_ds, validation_data=val_ds, epochs=10)
+    history = model.fit(train_ds, validation_data=val_ds, epochs=EPOCHS,
+                        callbacks=[early_stop])
     train_seconds = time.time() - start
+    print_history(history)
 
     evaluate_and_save(MODEL_NAME, model, test_ds, train_seconds, model.count_params())
 
